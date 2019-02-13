@@ -28,8 +28,8 @@ class APIinteraction(object):
         '''
         self.url = 'https://css.api.hp.com'
         self.assetDictionary = assetDictionary
-        self.apiKey = ''
-        self.apiSecret = ''
+        self.apiKey = 'api key here'
+        self.apiSecret = 'api secret here'
         self.token = ''
         self.job = ''
         self.results = ''
