@@ -10,7 +10,7 @@ class WarrCheckGUI(tk.Tk):
         tk.Tk.__init__(self)
         self.oFileName=''  # file to be opened
         self.sFileSaveLoc='' # save file directory
-        self.sFileName='Warranty_Output.csv' # file to be saved
+        
         self.label = Label(self, text=
                '''INSTRUCTIONS FOR USE:
                1. Select 'Browse for file' and select your Hardware 01A report exported as a CSV file.
@@ -29,11 +29,14 @@ class WarrCheckGUI(tk.Tk):
     def openFile(self):
         self.oFileName = filedialog.askopenfilename(title="Choose CSV file")
         
-    def sendQuery(self): 
         
+    def sendQuery(self): 
+        self.sFileName='Warranty_Output.csv' # file to be saved
         try:
+            
             fi = FileInteraction.FileController(self.oFileName) # create file interaction object 
             fi.buildAssetDictionary() # build the asset dictionary to be sent to HP
+            
             self.sFileSaveLoc = filedialog.askdirectory() + '/' # ask user to select directory for file to be saved.
             self.sFileName = self.sFileSaveLoc + self.sFileName  # append filename to location
             
@@ -42,12 +45,15 @@ class WarrCheckGUI(tk.Tk):
             api.batchJob() # start a batch job using previously supplied assetDictionary
             api.jobMonitor() # monitor the ongoing batch job until completion
             api.createJSONFile(self.sFileSaveLoc)
+            api.compileResults() # compile results from api query
             
-            api.compileResults(api.results) # compile 
-            fi.createWarrantyStatusCSV(self.sFileName, api.results)
+            fi.createWarrantyStatusCSV(self.sFileName, api.results) # build CSV file
             
-        except:
-            messagebox.showerror("ERROR", "Please select Report file using 'Browse for File' First")  # this is a catchall at this stage needs to be refined for various types of exceptions
+            
+        except KeyError:
+            messagebox.showerror("ERROR", "Invalid CSV file") # if CSV file has not been cleaned up - later version will clean up CSV on run
+        except Exception as e:
+            messagebox.showerror("err",e)  # this is a catchall at this stage needs to be refined for various types of exceptions
         
         
         

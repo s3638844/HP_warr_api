@@ -22,7 +22,6 @@ class APIinteraction(object):
      
     '''
 
-
     def __init__(self, assetDictionary):
         '''
         Constructor
@@ -35,9 +34,6 @@ class APIinteraction(object):
         self.job = ''
         self.results = ''
         
-
-        
-        
     # get token from HP API using Key and Secret    
     def getToken(self):
         tokenBody = { 'apiKey': self.apiKey, 'apiSecret': self.apiSecret, 'grantType': 'client_credentials', 'scope': 'warranty' }
@@ -45,7 +41,6 @@ class APIinteraction(object):
         tokenResponse = requests.post((self.url + '/oauth/v1/token'), data=tokenBody, headers=tokenHeaders)
         tokenJson = tokenResponse.json()
         self.token = tokenJson['access_token']
-        
         
     # creates batch job and sends request to HP      
     def batchJob(self):
@@ -67,32 +62,42 @@ class APIinteraction(object):
         else:
             time.sleep(20)
 
-
-
     def jobMonitor(self):
+        
         headers = {
         'Authorization': 'Bearer ' + self.token,
         'Accept-Encoding': 'gzip,deflate'
         }
         status = 'incomplete'
+        
         while (status == 'incomplete'):
-            monitorResponse = requests.get(self.url+'/productWarranty/v2/jobs/'+self.job['jobId'], headers=headers)
+            monitorResponse = requests.get(self.url + '/productWarranty/v2/jobs/' + self.job['jobId'], headers=headers)
             monitor = monitorResponse.json()
+            
             if (monitor['status'] != "completed"):
+                
                 if (monitor['estimatedTime'] > 1200):
+                    print(monitor)
                     print('Estimated time in seconds to completion: ' + str(monitor['estimatedTime']) + '\nNext job check in 10 minutes...\n')
+                    
                     time.sleep(200)
+                    
                 elif (monitor['estimatedTime'] > 600):
+                    print(monitor)
                     print('Estimated time in seconds to completion: ' + str(monitor['estimatedTime']) + '\nNext job check in 5 minutes...\n')
                     time.sleep(100)
+                    
                 else:
+                    print(monitor)
                     print('Estimated time in seconds to completion: ' + str(monitor['estimatedTime']) + '\nNext job check in 1 minute...\n')
                     time.sleep(10)
+                    
             else:
                 status = 'complete'
-        self.results = requests.get(self.url+'/productWarranty/v2/jobs/'+self.job['jobId']+'/results', headers=headers).json()
-        
+                
+        self.results = requests.get(self.url + '/productWarranty/v2/jobs/' + self.job['jobId'] + '/results', headers=headers).json()
         print('Batch job complete: \n')
+
 
         
     def createJSONFile(self, sFileSaveLoc):
@@ -102,33 +107,37 @@ class APIinteraction(object):
                 
         except Exception as e:
             print(e)   
-             
-    def compileResults(self, results):
+                      
+                      
+                      
+    def compileResults(self):
         returnList = []
-        for r in results:
-            warrantyEndDate = ''
+        todaysDate = datetime.date.today()
+        
+        for r in self.results:
             warrantyStatus = 'No warranty'
             serialNumber = r['product']['serialNumber']
             # documentation for JSON fields available at HP Developers portal
+              
             for offer in r['offers']:
-                try:  # try_catch block in case missing records or incomplete records are returned
-                   
-                    if (offer['offerDescription'] == 'HWM Onsite'): # only check HWM Onsite for valid warranty - believe this to be the accurate record 
-                        warrantyEndDate += offer['serviceObligationLineItemEndDate']
-                        parsed = dateutil.parser.parse(offer['serviceObligationLineItemEndDate']).date()
-                        todaysDate = datetime.date.today()
-                        if todaysDate < parsed:  # active warranty
+                try:
+                    if (offer.get('serviceObligationLineItemEndDate') and not (offer['offerDescription'] == 'Wty: HP Support for Initial Setup')):
+                        endDateParsed = dateutil.parser.parse(offer['serviceObligationLineItemEndDate']).date()
+                        if (endDateParsed > todaysDate):
                             warrantyStatus = 'Warranty active'
-                        else:  # expired warranty
+                            warrantyEndDate = endDateParsed
+                             
+                        elif (endDateParsed < todaysDate):
                             warrantyStatus = 'Warranty Expired'
-                    
-                except: # missing records
+                            warrantyEndDate = endDateParsed
+                            
+                        
+                 
+                except:  # missing records
                     warrantyStatus = 'ERR: unable to retrieve'
                     warrantyEndDate = 'ERR: unable to retrieve'
-            returnList.append({'sn' : serialNumber, 
-                               'Warranty_Status' : warrantyStatus, 
+            returnList.append({'sn' : serialNumber,
+                               'Warranty_Status' : warrantyStatus,
                                'Warranty_End_Date' : warrantyEndDate})
-        self.results = returnList 
-        
-                                  
-                               
+        self.results = returnList                              
+                                
